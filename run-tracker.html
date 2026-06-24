@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black"/>
+<meta name="apple-mobile-web-app-title" content="Run Tracker"/>
+<title>Run Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{margin:0;padding:0;background:#F7F6F2;font-family:system-ui,-apple-system,sans-serif;}
+button{-webkit-appearance:none;touch-action:manipulation;}
+textarea{-webkit-appearance:none;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+const PLAN = [
+  { num:1,  dates:"Jun 22–28",    phase:"10K", phaseSub:"Base",  title:"Re-establish routine",
+    days:["1.5 mi","—","1.0 mi","—","1.0 mi","—","—"], types:["long","rest","run","rest","run","rest","rest"], total:"3.5" },
+  { num:2,  dates:"Jun 29–Jul 5", phase:"10K", phaseSub:"Base",  title:"Add a little volume",
+    days:["2.0 mi","—","1.3 mi","—","1.3 mi","—","—"], types:["long","rest","run","rest","run","rest","rest"], total:"4.6" },
+  { num:3,  dates:"Jul 6–12",     phase:"10K", phaseSub:"Build", title:"Introduce 4th run",
+    days:["2.5 mi","—","1.5 mi","—","1.5 mi","1.0 mi","—"], types:["long","rest","run","rest","run","easy","rest"], total:"7.5" },
+  { num:4,  dates:"Jul 13–19",    phase:"10K", phaseSub:"Build", title:"Recovery week",
+    days:["2.0 mi","—","1.3 mi","—","1.3 mi","1.0 mi","—"], types:["long","rest","run","rest","run","easy","rest"], total:"5.6" },
+  { num:5,  dates:"Jul 20–26",    phase:"10K", phaseSub:"Build", title:"Approach 10K long run",
+    days:["3.5 mi","—","1.5 mi","—","2.0 mi","1.0 mi","—"], types:["long","rest","run","rest","run","easy","rest"], total:"8.0" },
+  { num:6,  dates:"Jul 27–Aug 2", phase:"10K", phaseSub:"Build", title:"First time over 4 miles",
+    days:["4.0 mi","—","1.5 mi","—","2.0 mi","1.3 mi","—"], types:["long","rest","run","rest","run","easy","rest"], total:"8.8" },
+  { num:7,  dates:"Aug 3–9",      phase:"10K", phaseSub:"Peak",  title:"Biggest 10K week",
+    days:["5.0 mi","—","2.0 mi","—","2.5 mi","1.5 mi","—"], types:["long","rest","run","rest","run","easy","rest"], total:"11.0" },
+  { num:8,  dates:"Aug 10–16",    phase:"10K", phaseSub:"Peak",  title:"Consolidate at full distance",
+    days:["5.5 mi","—","2.0 mi","—","2.5 mi","1.5 mi","—"], types:["long","rest","run","rest","run","easy","rest"], total:"11.5" },
+  { num:9,  dates:"Aug 17–23",    phase:"10K", phaseSub:"Taper", title:"Cut back, stay fresh",
+    days:["3.0 mi","—","1.5 mi","—","1.5 mi","1.0 mi","—"], types:["long","rest","run","rest","run","easy","rest"], total:"7.0" },
+  { num:10, dates:"Aug 24–30",    phase:"10K", phaseSub:"Race",  title:"10K Race Sunday Aug 30",
+    days:["10K RACE","—","1.3 mi","—","0.7 mi","—","—"], types:["race","rest","easy","rest","easy","rest","rest"], total:"race" },
+  { num:11, dates:"Aug 31–Sep 6", phase:"Bridge", phaseSub:"",   title:"Post-race recovery",
+    days:["2.0 mi","—","1.0 mi","—","1.0 mi","—","—"], types:["long","rest","easy","rest","easy","rest","rest"], total:"4.0" },
+  { num:12, dates:"Sep 7–13",     phase:"Bridge", phaseSub:"",   title:"Rebuild base",
+    days:["4.0 mi","—","2.0 mi","—","2.0 mi","1.5 mi","—"], types:["long","rest","run","rest","run","easy","rest"], total:"9.5" },
+  { num:13, dates:"Sep 14–20",    phase:"Bridge", phaseSub:"",   title:"Introduce mid-long Wednesday",
+    days:["5.0 mi","—","2.0 mi","3.0 mi","—","1.5 mi","—"], types:["long","rest","run","mid","rest","easy","rest"], total:"11.5" },
+  { num:14, dates:"Sep 21–27",    phase:"Bridge", phaseSub:"",   title:"Recovery week",
+    days:["4.0 mi","—","2.0 mi","2.5 mi","—","1.5 mi","—"], types:["long","rest","run","mid","rest","easy","rest"], total:"10.0" },
+  { num:15, dates:"Sep 28–Oct 4", phase:"Bridge", phaseSub:"",   title:"Push long run to 7 miles",
+    days:["7.0 mi","—","2.0 mi","3.5 mi","—","1.5 mi","—"], types:["long","rest","run","mid","rest","easy","rest"], total:"14.0" },
+  { num:16, dates:"Oct 5–11",     phase:"Bridge", phaseSub:"",   title:"Final bridge — ready for HM",
+    days:["8.0 mi","—","2.5 mi","4.0 mi","—","2.0 mi","—"], types:["long","rest","run","mid","rest","easy","rest"], total:"16.5" },
+  { num:17, dates:"Oct 12–18",    phase:"HM", phaseSub:"Base",   title:"Establish 4-day rhythm",
+    days:["8.0 mi","—","3.0 mi","5.0 mi","—","2.0 mi","—"], types:["long","rest","run","mid","rest","easy","rest"], total:"18.0" },
+  { num:18, dates:"Oct 19–25",    phase:"HM", phaseSub:"Build",  title:"Long run hits 10 miles",
+    days:["10.0 mi","—","3.0 mi","5.0 mi","—","2.0 mi","—"], types:["long","rest","run","mid","rest","easy","rest"], total:"20.0" },
+  { num:19, dates:"Oct 26–Nov 1", phase:"HM", phaseSub:"Build",  title:"Biggest training week",
+    days:["11.0 mi","—","3.0 mi","6.0 mi","—","2.0 mi","—"], types:["long","rest","run","mid","rest","easy","rest"], total:"22.0" },
+  { num:20, dates:"Nov 2–8",      phase:"HM", phaseSub:"Taper",  title:"Taper — cut back",
+    days:["7.0 mi","—","2.5 mi","4.0 mi","—","1.5 mi","—"], types:["long","rest","run","mid","rest","easy","rest"], total:"15.0" },
+  { num:21, dates:"Nov 9–15",     phase:"HM", phaseSub:"Race",   title:"Half Marathon — Sat Nov 14!",
+    days:["3.0 mi","—","2.0 mi","—","1.0 mi","—","HALF MAR!"], types:["long","rest","easy","rest","easy","rest","race"], total:"race" },
+];
+
+const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const PHASE_STYLE = {
+  "10K":    { bg:"#EEF5FC", fg:"#185FA5", accent:"#378ADD", label:"10K Training" },
+  "Bridge": { bg:"#F0EFF9", fg:"#3C3489", accent:"#7B72D4", label:"Bridge" },
+  "HM":     { bg:"#FDF5E6", fg:"#854F0B", accent:"#BA7517", label:"Half Marathon" },
+};
+const TYPE_COLOR = { long:"#3B6D11", run:"#378ADD", mid:"#BA7517", easy:"#BA7517", race:"#D85A30", rest:"#BBBBBB" };
+const TYPE_BG    = { long:"#EAF3DE", run:"#EEF5FC", mid:"#FAEEDA", easy:"#FAEEDA", race:"#FAECE7", rest:"transparent" };
+
+function getCurrentWeek() {
+  const start = new Date("2026-06-22");
+  const diff = Math.floor((new Date() - start) / (7*24*60*60*1000));
+  return Math.max(0, Math.min(diff, PLAN.length-1));
+}
+
+// ── STORAGE: tries localStorage first, falls back to IndexedDB, then memory ──
+const DB_NAME = "RunTracker", DB_STORE = "data", DB_KEY = "v1";
+let idbDb = null;
+
+function openIDB() {
+  return new Promise((res, rej) => {
+    if (idbDb) return res(idbDb);
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(DB_STORE);
+    req.onsuccess = e => { idbDb = e.target.result; res(idbDb); };
+    req.onerror = () => rej(req.error);
+  });
+}
+async function idbGet() {
+  try {
+    const db = await openIDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(DB_STORE, "readonly");
+      const req = tx.objectStore(DB_STORE).get(DB_KEY);
+      req.onsuccess = () => res(req.result || null);
+      req.onerror = () => rej(req.error);
+    });
+  } catch { return null; }
+}
+async function idbSet(val) {
+  try {
+    const db = await openIDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(DB_STORE, "readwrite");
+      tx.objectStore(DB_STORE).put(val, DB_KEY);
+      tx.oncomplete = () => res(true);
+      tx.onerror = () => rej(tx.error);
+    });
+  } catch { return false; }
+}
+
+function lsGet() {
+  try { const r = localStorage.getItem("run-tracker-v1"); return r ? JSON.parse(r) : null; }
+  catch { return null; }
+}
+function lsSet(data) {
+  try { localStorage.setItem("run-tracker-v1", JSON.stringify(data)); return true; }
+  catch { return false; }
+}
+
+async function loadData() {
+  // Try localStorage first (fastest)
+  const ls = lsGet();
+  if (ls) return ls;
+  // Try IndexedDB (works for local files in Safari)
+  const idb = await idbGet();
+  if (idb) return idb;
+  return { checks:{}, notes:{}, runs:{} };
+}
+
+async function saveData(data) {
+  lsSet(data);       // try both, whichever works
+  await idbSet(data);
+}
+
+// ── ICONS ──
+const Check = () => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+    <path d="M2.5 7L5.5 10L11.5 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+const ChevronRight = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+const ChevronLeft = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <path d="M10 4L6 8l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+function Stat({ label, value, accent }) {
+  return (
+    <div style={{flex:1}}>
+      <div style={{fontSize:20,fontWeight:700,color:accent}}>{value}</div>
+      <div style={{fontSize:10,color:"#AAA",marginTop:1}}>{label}</div>
+    </div>
+  );
+}
+
+function WeekCard({ week, data, onTap, highlight }) {
+  const ps = PHASE_STYLE[week.phase];
+  const runDays = week.types.map((t,i)=>t!=="rest"?i:-1).filter(i=>i>=0);
+  const doneDays = runDays.filter(i=>data.checks[`${week.num}-${i}`]).length;
+  const complete = doneDays===runDays.length && runDays.length>0;
+  return (
+    <div onClick={onTap} style={{
+      background:"white",borderRadius:12,padding:"12px 14px",marginBottom:8,
+      border:highlight?"2px solid #378ADD":"1px solid #E8E7E3",
+      cursor:"pointer",display:"flex",alignItems:"center",gap:12,
+    }}>
+      <div style={{minWidth:40,height:40,borderRadius:10,background:complete?"#EAF3DE":ps.bg,
+        display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+        {complete
+          ? <span style={{color:"#3B6D11",fontSize:18}}>✓</span>
+          : <><div style={{fontSize:9,color:ps.fg,fontWeight:600,lineHeight:1}}>WK</div>
+              <div style={{fontSize:16,fontWeight:700,color:ps.fg,lineHeight:1.1}}>{week.num}</div></>
+        }
+      </div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{marginBottom:2}}>
+          <span style={{fontSize:10,color:ps.fg,fontWeight:600,background:ps.bg,padding:"1px 6px",borderRadius:4}}>
+            {ps.label}{week.phaseSub?` · ${week.phaseSub}`:""}
+          </span>
+        </div>
+        <div style={{fontSize:13,fontWeight:600,color:"#1C1C1E",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{week.title}</div>
+        <div style={{fontSize:11,color:"#888",marginTop:1}}>{week.dates}</div>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
+        <div style={{display:"flex",gap:3}}>
+          {runDays.map(i=>(
+            <div key={i} style={{width:7,height:7,borderRadius:"50%",
+              background:data.checks[`${week.num}-${i}`]?TYPE_COLOR[week.types[i]]:"#E0E0E0"}}/>
+          ))}
+        </div>
+        <div style={{fontSize:10,color:"#888"}}>{doneDays}/{runDays.length} runs</div>
+      </div>
+      <ChevronRight/>
+    </div>
+  );
+}
+
+function WeekView({ week, weekIdx, data, onToggle, onNote, onLogRun, onBack, onPrev, onNext, saved }) {
+  const ps = PHASE_STYLE[week.phase];
+  const [editNote, setEditNote] = useState(false);
+  const [noteVal, setNoteVal] = useState("");
+  const [logDay, setLogDay] = useState(null);
+  const [logVal, setLogVal] = useState("");
+  const runDays = week.types.map((t,i)=>t!=="rest"?i:-1).filter(i=>i>=0);
+  const doneDays = runDays.filter(i=>data.checks[`${week.num}-${i}`]).length;
+
+  useEffect(()=>{ setNoteVal(data.notes[week.num]||""); setEditNote(false); },[week.num]);
+
+  function submitNote(){ onNote(week.num, noteVal); setEditNote(false); }
+  function submitLog(){
+    const v=parseFloat(logVal);
+    if(!isNaN(v)&&v>0){ onLogRun(week.num,logDay,v); if(!data.checks[`${week.num}-${logDay}`]) onToggle(week.num,logDay); }
+    setLogDay(null); setLogVal("");
+  }
+
+  return (
+    <div style={{fontFamily:"system-ui,-apple-system,sans-serif",background:"#F7F6F2",minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
+      <div style={{background:ps.fg,padding:"52px 20px 16px",color:"white"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+          <button onClick={onBack} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"white",borderRadius:8,padding:"6px 12px",fontSize:13,cursor:"pointer"}}>← Back</button>
+          <div style={{flex:1}}/>
+          {saved && <div style={{fontSize:11,color:"rgba(255,255,255,0.5)"}}>Saved ✓</div>}
+          <button onClick={onPrev} disabled={weekIdx===0} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"white",borderRadius:8,padding:"6px 10px",cursor:"pointer",opacity:weekIdx===0?0.4:1}}><ChevronLeft/></button>
+          <button onClick={onNext} disabled={weekIdx===PLAN.length-1} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"white",borderRadius:8,padding:"6px 10px",cursor:"pointer",opacity:weekIdx===PLAN.length-1?0.4:1}}><ChevronRight/></button>
+        </div>
+        <div style={{fontSize:11,letterSpacing:"0.1em",textTransform:"uppercase",color:"rgba(255,255,255,0.6)",marginBottom:4}}>
+          Week {week.num} · {ps.label}{week.phaseSub?` · ${week.phaseSub}`:""}
+        </div>
+        <div style={{fontSize:20,fontWeight:700}}>{week.title}</div>
+        <div style={{fontSize:12,color:"rgba(255,255,255,0.65)",marginTop:2}}>{week.dates}</div>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginTop:12}}>
+          <div style={{flex:1,height:5,background:"rgba(255,255,255,0.2)",borderRadius:3}}>
+            <div style={{height:5,background:"white",borderRadius:3,width:`${(doneDays/Math.max(runDays.length,1))*100}%`,transition:"width 0.4s"}}/>
+          </div>
+          <div style={{fontSize:12,color:"rgba(255,255,255,0.8)"}}>{doneDays}/{runDays.length} runs</div>
+        </div>
+      </div>
+
+      <div style={{padding:"16px 16px 8px"}}>
+        <div style={{fontSize:11,letterSpacing:"0.1em",textTransform:"uppercase",color:"#888",marginBottom:10}}>This week's runs</div>
+        {DAY_NAMES.map((day,i)=>{
+          const type=week.types[i]; if(type==="rest") return null;
+          const label=week.days[i]; const key=`${week.num}-${i}`;
+          const done=data.checks[key]; const logged=data.runs[key];
+          return (
+            <div key={i} style={{background:"white",borderRadius:12,padding:"14px 16px",marginBottom:8,
+              border:done?`1.5px solid ${TYPE_COLOR[type]}`:"1px solid #E8E7E3"}}>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <div style={{width:38,height:38,borderRadius:10,background:TYPE_BG[type],display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  <span style={{fontSize:12,fontWeight:700,color:TYPE_COLOR[type]}}>{day}</span>
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:15,fontWeight:600,color:done?"#888":"#1C1C1E",textDecoration:done?"line-through":"none"}}>{label}</div>
+                  <div style={{fontSize:11,color:TYPE_COLOR[type],fontWeight:500,marginTop:1}}>
+                    {type==="long"?"Long run":type==="mid"?"Mid-long run":type==="easy"?"Easy run":type==="race"?"Race day! 🏅":"Run"}
+                  </div>
+                  {logged&&<div style={{fontSize:11,color:"#3B6D11",marginTop:2}}>Logged: {logged} mi</div>}
+                </div>
+                <div style={{display:"flex",gap:6}}>
+                  {type!=="race"&&(
+                    <button onClick={()=>{setLogDay(i);setLogVal(logged||"");}}
+                      style={{background:"#F0F0EE",border:"none",borderRadius:8,padding:"7px 10px",fontSize:12,color:"#555",cursor:"pointer"}}>Log</button>
+                  )}
+                  <button onClick={()=>onToggle(week.num,i)}
+                    style={{width:36,height:36,borderRadius:10,border:"none",cursor:"pointer",
+                      background:done?TYPE_COLOR[type]:"#F0F0EE",color:done?"white":"#888",
+                      display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <Check/>
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{padding:"0 16px 100px"}}>
+        <div style={{fontSize:11,letterSpacing:"0.1em",textTransform:"uppercase",color:"#888",marginBottom:10}}>Week notes</div>
+        {editNote?(
+          <div style={{background:"white",borderRadius:12,padding:14,border:"1px solid #E8E7E3"}}>
+            <textarea value={noteVal} onChange={e=>setNoteVal(e.target.value)}
+              placeholder="How did this week go?"
+              style={{width:"100%",minHeight:80,border:"none",outline:"none",fontSize:14,color:"#1C1C1E",resize:"none",fontFamily:"inherit"}}/>
+            <div style={{display:"flex",gap:8,marginTop:8}}>
+              <button onClick={submitNote} style={{flex:1,padding:"10px",background:"#1C1C1E",color:"white",border:"none",borderRadius:8,fontSize:14,fontWeight:600,cursor:"pointer"}}>Save</button>
+              <button onClick={()=>{setEditNote(false);setNoteVal(data.notes[week.num]||"");}} style={{padding:"10px 16px",background:"#F0F0EE",color:"#555",border:"none",borderRadius:8,fontSize:14,cursor:"pointer"}}>Cancel</button>
+            </div>
+          </div>
+        ):(
+          <div onClick={()=>{setNoteVal(data.notes[week.num]||"");setEditNote(true);}}
+            style={{background:"white",borderRadius:12,padding:14,border:"1px solid #E8E7E3",cursor:"pointer",minHeight:54}}>
+            {data.notes[week.num]
+              ? <p style={{margin:0,fontSize:14,color:"#1C1C1E",lineHeight:1.5}}>{data.notes[week.num]}</p>
+              : <p style={{margin:0,fontSize:14,color:"#BBB"}}>Tap to add a note…</p>
+            }
+          </div>
+        )}
+      </div>
+
+      {logDay!==null&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:100}}>
+          <div style={{background:"white",borderRadius:"20px 20px 0 0",padding:"24px 20px 50px",width:"100%",maxWidth:480}}>
+            <div style={{fontSize:16,fontWeight:700,marginBottom:6}}>Log miles for {DAY_NAMES[logDay]}</div>
+            <div style={{fontSize:13,color:"#888",marginBottom:16}}>Planned: {week.days[logDay]}</div>
+            <input type="number" step="0.1" min="0" value={logVal} onChange={e=>setLogVal(e.target.value)}
+              placeholder="e.g. 3.2"
+              style={{width:"100%",padding:"14px",fontSize:18,border:"1.5px solid #E0E0E0",borderRadius:10,outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}
+              autoFocus/>
+            <div style={{display:"flex",gap:8,marginTop:12}}>
+              <button onClick={submitLog} style={{flex:1,padding:"14px",background:"#1C1C1E",color:"white",border:"none",borderRadius:10,fontSize:15,fontWeight:600,cursor:"pointer"}}>Save & mark done</button>
+              <button onClick={()=>setLogDay(null)} style={{padding:"14px 18px",background:"#F0F0EE",border:"none",borderRadius:10,fontSize:15,cursor:"pointer"}}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProgressView({ data, onBack, totalMiles, totalWeeks }) {
+  const weeksWithData = PLAN.map(w=>{
+    const runDays=w.types.map((t,i)=>t!=="rest"?i:-1).filter(i=>i>=0);
+    const done=runDays.filter(i=>data.checks[`${w.num}-${i}`]).length;
+    const loggedMiles=runDays.reduce((s,i)=>s+(parseFloat(data.runs[`${w.num}-${i}`])||0),0);
+    const plannedMiles=w.total==="race"?6.2:parseFloat(w.total);
+    return {...w,done,total_runs:runDays.length,loggedMiles,plannedMiles};
+  });
+  const maxMiles=Math.max(...weeksWithData.map(w=>w.plannedMiles),1);
+  const completedWeeks=weeksWithData.filter(w=>w.done===w.total_runs&&w.total_runs>0);
+  const longestRun=Math.max(...Object.values(data.runs).map(v=>parseFloat(v)||0),0);
+
+  return (
+    <div style={{fontFamily:"system-ui,-apple-system,sans-serif",background:"#F7F6F2",minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
+      <div style={{background:"#1C1C1E",padding:"52px 20px 20px",color:"white"}}>
+        <button onClick={onBack} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"white",borderRadius:8,padding:"6px 12px",fontSize:13,cursor:"pointer",marginBottom:16}}>← Back</button>
+        <div style={{fontSize:11,letterSpacing:"0.1em",textTransform:"uppercase",color:"#888",marginBottom:4}}>Progress</div>
+        <div style={{fontSize:22,fontWeight:700}}>Your training so far</div>
+        <div style={{display:"flex",gap:16,marginTop:16}}>
+          <Stat label="Total miles" value={totalMiles.toFixed(1)} accent="#3B6D11"/>
+          <Stat label="Weeks complete" value={`${totalWeeks}/21`} accent="#378ADD"/>
+          <Stat label="Longest run" value={longestRun>0?`${longestRun} mi`:"—"} accent="#D85A30"/>
+        </div>
+      </div>
+      <div style={{padding:"16px 16px 8px"}}>
+        <div style={{fontSize:11,letterSpacing:"0.1em",textTransform:"uppercase",color:"#888",marginBottom:12}}>Weekly mileage</div>
+        <div style={{background:"white",borderRadius:12,padding:"16px 12px 12px",border:"1px solid #E8E7E3"}}>
+          <div style={{display:"flex",alignItems:"flex-end",gap:2,height:100}}>
+            {weeksWithData.map(w=>{
+              const ps=PHASE_STYLE[w.phase];
+              const logH=(w.loggedMiles/maxMiles)*90;
+              const planH=(w.plannedMiles/maxMiles)*90;
+              return (
+                <div key={w.num} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
+                  <div style={{width:"100%",height:90,position:"relative"}}>
+                    <div style={{position:"absolute",bottom:0,left:0,right:0,height:planH,background:`${ps.accent}22`,borderRadius:"3px 3px 0 0"}}/>
+                    {w.loggedMiles>0&&<div style={{position:"absolute",bottom:0,left:"15%",right:"15%",height:logH,background:ps.accent,borderRadius:"3px 3px 0 0"}}/>}
+                    {w.done===w.total_runs&&w.total_runs>0&&<div style={{position:"absolute",top:-8,left:"50%",transform:"translateX(-50%)",width:5,height:5,borderRadius:"50%",background:"#3B6D11"}}/>}
+                  </div>
+                  <div style={{fontSize:6.5,color:"#BBB"}}>{w.num}</div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{display:"flex",gap:12,marginTop:10}}>
+            <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:"#888"}}><div style={{width:10,height:10,borderRadius:2,background:"#378ADD44"}}/>Planned</div>
+            <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:"#888"}}><div style={{width:10,height:10,borderRadius:2,background:"#378ADD"}}/>Logged</div>
+            <div style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:"#888"}}><div style={{width:6,height:6,borderRadius:"50%",background:"#3B6D11"}}/>Complete</div>
+          </div>
+        </div>
+      </div>
+      <div style={{padding:"8px 16px 32px"}}>
+        <div style={{fontSize:11,letterSpacing:"0.1em",textTransform:"uppercase",color:"#888",marginBottom:10}}>Completed weeks</div>
+        {completedWeeks.length===0
+          ? <div style={{background:"white",borderRadius:12,padding:20,textAlign:"center",color:"#BBB",fontSize:14,border:"1px solid #E8E7E3"}}>No completed weeks yet — get out there! 🏃</div>
+          : completedWeeks.map(w=>{
+              const ps=PHASE_STYLE[w.phase];
+              return (
+                <div key={w.num} style={{background:"white",borderRadius:12,padding:"12px 14px",marginBottom:6,border:"1px solid #E8E7E3",display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{width:32,height:32,borderRadius:8,background:"#EAF3DE",display:"flex",alignItems:"center",justifyContent:"center",color:"#3B6D11"}}><Check/></div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:600,color:"#1C1C1E"}}>Week {w.num} · {w.title}</div>
+                    <div style={{fontSize:11,color:"#888"}}>{w.dates} · {w.loggedMiles>0?`${w.loggedMiles.toFixed(1)} mi logged`:`${w.plannedMiles} mi planned`}</div>
+                  </div>
+                  <span style={{fontSize:10,color:ps.fg,background:ps.bg,padding:"2px 7px",borderRadius:4,fontWeight:600}}>{ps.label}</span>
+                </div>
+              );
+            })
+        }
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [view, setView] = useState("home");
+  const [activeWeek, setActiveWeek] = useState(getCurrentWeek());
+  const [data, setData] = useState({ checks:{}, notes:{}, runs:{} });
+  const [loaded, setLoaded] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(()=>{
+    loadData().then(d=>{ setData(d); setLoaded(true); });
+  },[]);
+
+  async function update(newData) {
+    setData(newData);
+    await saveData(newData);
+    setSaved(true);
+    setTimeout(()=>setSaved(false), 2000);
+  }
+
+  function toggleCheck(weekNum,dayIdx){
+    const key=`${weekNum}-${dayIdx}`;
+    update({...data,checks:{...data.checks,[key]:!data.checks[key]}});
+  }
+  function setNote(weekNum,note){ update({...data,notes:{...data.notes,[weekNum]:note}}); }
+  function logRun(weekNum,dayIdx,miles){
+    const key=`${weekNum}-${dayIdx}`;
+    update({...data,runs:{...data.runs,[key]:miles}});
+  }
+
+  if (!loaded) return (
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"system-ui",color:"#888",flexDirection:"column",gap:12}}>
+      <div style={{fontSize:32}}>🏃</div>
+      <div>Loading your training…</div>
+    </div>
+  );
+
+  const curWeekIdx=getCurrentWeek();
+  const totalMilesLogged=Object.entries(data.runs).reduce((s,[,v])=>s+(parseFloat(v)||0),0);
+  const totalWeeksComplete=PLAN.filter(w=>{
+    const runDays=w.types.map((t,i)=>t!=="rest"?i:-1).filter(i=>i>=0);
+    return runDays.length>0&&runDays.every(i=>data.checks[`${w.num}-${i}`]);
+  }).length;
+
+  if(view==="progress") return <ProgressView data={data} onBack={()=>setView("home")} totalMiles={totalMilesLogged} totalWeeks={totalWeeksComplete}/>;
+  if(view==="week") return (
+    <WeekView week={PLAN[activeWeek]} weekIdx={activeWeek} data={data}
+      onToggle={toggleCheck} onNote={setNote} onLogRun={logRun}
+      onBack={()=>setView("home")}
+      onPrev={()=>setActiveWeek(Math.max(0,activeWeek-1))}
+      onNext={()=>setActiveWeek(Math.min(PLAN.length-1,activeWeek+1))}
+      saved={saved}/>
+  );
+
+  return (
+    <div style={{fontFamily:"system-ui,-apple-system,sans-serif",background:"#F7F6F2",minHeight:"100vh",maxWidth:480,margin:"0 auto"}}>
+      <div style={{background:"#1C1C1E",padding:"52px 20px 20px",color:"white"}}>
+        <div style={{fontSize:11,letterSpacing:"0.12em",textTransform:"uppercase",color:"#888",marginBottom:6}}>Your Training Plan</div>
+        <div style={{fontSize:22,fontWeight:700,marginBottom:2}}>10K → Half Marathon</div>
+        <div style={{fontSize:13,color:"#AAA"}}>Jun 22 – Nov 14, 2026</div>
+        <div style={{display:"flex",gap:16,marginTop:16}}>
+          <Stat label="Miles logged" value={totalMilesLogged.toFixed(1)} accent="#3B6D11"/>
+          <Stat label="Weeks done" value={`${totalWeeksComplete}/21`} accent="#378ADD"/>
+          <Stat label="Race day" value="Nov 14" accent="#D85A30"/>
+        </div>
+      </div>
+      <div style={{background:"#E8E7E3",height:4}}>
+        <div style={{height:4,background:"linear-gradient(90deg,#378ADD,#3B6D11)",width:`${(totalWeeksComplete/21)*100}%`,transition:"width 0.5s"}}/>
+      </div>
+      <div style={{padding:"16px 16px 8px"}}>
+        <div style={{fontSize:11,letterSpacing:"0.1em",textTransform:"uppercase",color:"#888",marginBottom:10}}>This week</div>
+        <WeekCard week={PLAN[curWeekIdx]} data={data} onTap={()=>{setActiveWeek(curWeekIdx);setView("week");}} highlight/>
+      </div>
+      <div style={{padding:"8px 16px 16px"}}>
+        <div style={{fontSize:11,letterSpacing:"0.1em",textTransform:"uppercase",color:"#888",marginBottom:10}}>All weeks</div>
+        {PLAN.map((w,i)=>(
+          <WeekCard key={w.num} week={w} data={data}
+            onTap={()=>{setActiveWeek(i);setView("week");}}
+            highlight={i===curWeekIdx}/>
+        ))}
+      </div>
+      <div style={{padding:"0 16px 48px"}}>
+        <button onClick={()=>setView("progress")}
+          style={{width:"100%",padding:"14px",background:"#1C1C1E",color:"white",border:"none",borderRadius:12,fontSize:15,fontWeight:600,cursor:"pointer"}}>
+          View progress charts →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
